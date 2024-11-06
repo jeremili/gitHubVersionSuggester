@@ -1,20 +1,16 @@
 function parseVersion(versionString) {
-    const patterns = [
-        /^v(\d+)\.(\d+)\.(\d+)$/,
-        /^staging-v(\d+)\.(\d+)\.(\d+)$/,
-        /^staging2-v(\d+)\.(\d+)\.(\d+)$/
-    ];
+    if (!versionString) return null;
 
-    for (const pattern of patterns) {
-        const match = versionString.match(pattern);
-        if (match) {
-            return {
-                prefix: versionString.substring(0, versionString.indexOf('v')),
-                major: parseInt(match[1]),
-                minor: parseInt(match[2]),
-                patch: parseInt(match[3])
-            };
-        }
+    const pattern = /^([a-zA-Z0-9\-]*)-?v(\d+)\.(\d+)\.(\d+)$/;
+    const match = versionString.match(pattern);
+
+    if (match) {
+        return {
+            prefix: match[1],
+            major: parseInt(match[2], 10),
+            minor: parseInt(match[3], 10),
+            patch: parseInt(match[4], 10)
+        };
     }
     return null;
 }
@@ -22,63 +18,25 @@ function parseVersion(versionString) {
 function findLatestVersions() {
     const versionElements = Array.from(document.querySelectorAll('.SelectMenu-item [data-menu-button-text]'));
 
-    const versionsByPrefix = {
-        'v': [],
-        'staging-': [],
-        'staging2-': []
-    };
+    let lastVersion = null;
 
-    // Loop over all versions and sort them by prefix
-    versionElements.forEach(element => {
+    for (const element of versionElements) {
         const version = element.textContent.trim();
         if (parseVersion(version)) {
-            if (version.startsWith('staging2-')) {
-                versionsByPrefix['staging2-'].push(version);
-            } else if (version.startsWith('staging-')) {
-                versionsByPrefix['staging-'].push(version);
-            } else if (version.startsWith('v')) {
-                versionsByPrefix['v'].push(version);
-            }
+            lastVersion = version;
+            break;
         }
-    });
+    }
 
-    // Return the latest version for each prefix
-    return {
-        'v': versionsByPrefix['v'][0] || null,
-        'staging-': versionsByPrefix['staging-'][0] || null,
-        'staging2-': versionsByPrefix['staging2-'][0] || null
-    };
+    return lastVersion;
 }
+
 
 // Suggest the next version based on the current version
-function suggestNextVersion(version) {
+function suggestNextVersion(input, version) {
     const parsedVersion = parseVersion(version);
-    if (!parsedVersion) return null;
+    if (!input || !parsedVersion) return null;
     return `${parsedVersion.prefix}v${parsedVersion.major}.${parsedVersion.minor}.${parsedVersion.patch + 1}`;
-}
-
-// Find suggestions for the input based on the latest versions
-function findSuggestionsForInput(input, versions) {
-    if (!input) return null;
-
-    input = input.trim().toLowerCase();
-
-    if (input.startsWith('v') && versions['v']) {
-        return suggestNextVersion(versions['v']);
-    }
-    else if (input.startsWith('s')) {
-        if (input.startsWith('staging2') && versions['staging2-']) {
-            return suggestNextVersion(versions['staging2-']);
-        }
-        else if (input.startsWith('staging-') && versions['staging-']) {
-            return suggestNextVersion(versions['staging-']);
-        }
-        else if (versions['staging-']) {
-            return suggestNextVersion(versions['staging-']);
-        }
-    }
-
-    return null;
 }
 
 function setupTagInput(input) {
@@ -141,8 +99,8 @@ function setupTagInput(input) {
 
     function updateSuggestion() {
         originalValue = input.value;
-        const versions = findLatestVersions();
-        currentSuggestion = findSuggestionsForInput(originalValue, versions);
+        const version = findLatestVersions();
+        currentSuggestion = suggestNextVersion(originalValue, version);
 
         if (currentSuggestion) {
             createGhostElement();
