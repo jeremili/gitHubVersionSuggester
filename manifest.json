@@ -1,0 +1,19 @@
+{
+    "manifest_version": 3,
+    "name": "GitHub Release Version Suggester",
+    "version": "1.1",
+    "description": "Automatically suggest the next release version on GitHub",
+    "permissions": [
+        "activeTab"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "*://github.com/*"
+            ],
+            "js": [
+                "content.js"
+            ]
+        }
+    ]
+}
