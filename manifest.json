@@ -1,8 +1,11 @@
 {
     "manifest_version": 3,
     "name": "GitHub Release Version Suggester",
-    "version": "1.1",
+    "version": "1.2",
     "description": "Automatically suggest the next release version on GitHub",
+    "icons": {
+        "128": "logo128.png"
+    },
     "permissions": [
         "activeTab"
     ],
