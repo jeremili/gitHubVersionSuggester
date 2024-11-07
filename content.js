@@ -1,106 +1,92 @@
-function parseVersion(versionString) {
-    if (!versionString) return null;
+// Utilitaires de gestion des versions
+const versionUtils = {
+    parseVersion(versionString) {
+        if (!versionString) return null;
 
-    const pattern = /^([a-zA-Z0-9\-]*)-?v(\d+)\.(\d+)\.(\d+)$/;
-    const match = versionString.match(pattern);
+        const pattern = /^([a-zA-Z0-9\-]*)-?v(\d+)\.(\d+)\.(\d+)$/;
+        const match = versionString.match(pattern);
 
-    if (match) {
-        return {
+        return match ? {
             prefix: match[1],
             major: parseInt(match[2], 10),
             minor: parseInt(match[3], 10),
             patch: parseInt(match[4], 10)
-        };
+        } : null;
+    },
+
+    getLatestVersion() {
+        const versionElements = Array.from(document.querySelectorAll('.SelectMenu-item [data-menu-button-text]'));
+        const firstVersion = versionElements.find(el => this.parseVersion(el.textContent.trim()));
+        return firstVersion?.textContent.trim() || null;
+    },
+
+    suggestNextVersion(currentInput, latestVersion) {
+        const parsed = this.parseVersion(latestVersion);
+        if (!currentInput || !parsed) return null;
+        return `${parsed.prefix}v${parsed.major}.${parsed.minor}.${parsed.patch + 1}`;
     }
-    return null;
-}
+};
 
-function findLatestVersions() {
-    const versionElements = Array.from(document.querySelectorAll('.SelectMenu-item [data-menu-button-text]'));
-
-    let lastVersion = null;
-
-    for (const element of versionElements) {
-        const version = element.textContent.trim();
-        if (parseVersion(version)) {
-            lastVersion = version;
-            break;
-        }
-    }
-
-    return lastVersion;
-}
-
-
-// Suggest the next version based on the current version
-function suggestNextVersion(input, version) {
-    const parsedVersion = parseVersion(version);
-    if (!input || !parsedVersion) return null;
-    return `${parsedVersion.prefix}v${parsedVersion.major}.${parsedVersion.minor}.${parsedVersion.patch + 1}`;
-}
-
-function setupTagInput(input) {
+// Gestionnaire de l'interface de suggestion
+const createSuggestionUI = (input) => {
+    let ghostElement = null;
     let currentSuggestion = null;
     let originalValue = '';
-    let ghostElement = null;
 
-    function createGhostElement() {
-        if (!ghostElement) {
-            ghostElement = document.createElement('div');
-            ghostElement.style.cssText = `
-                position: absolute;
-                pointer-events: none;
-                color: #666;
-                background: transparent;
-                font-family: ${window.getComputedStyle(input).fontFamily};
-                font-size: ${window.getComputedStyle(input).fontSize};
-                padding: ${window.getComputedStyle(input).padding};
-                white-space: pre;
-                z-index: 1000;
-            `;
-            document.body.appendChild(ghostElement);
-        }
+    const createGhostElement = () => {
+        if (ghostElement) return;
+
+        ghostElement = document.createElement('div');
+        ghostElement.style.cssText = `
+            position: absolute;
+            pointer-events: none;
+            color: #666;
+            background: transparent;
+            font-family: ${window.getComputedStyle(input).fontFamily};
+            font-size: ${window.getComputedStyle(input).fontSize};
+            padding: ${window.getComputedStyle(input).padding};
+            white-space: pre;
+            z-index: 1000;
+        `;
+        document.body.appendChild(ghostElement);
         updateGhostPosition();
-    }
+    };
 
-    function updateGhostPosition() {
-        if (ghostElement) {
-            const rect = input.getBoundingClientRect();
-            ghostElement.style.left = `${rect.left}px`;
-            ghostElement.style.top = `${rect.top}px`;
-        }
-    }
+    const updateGhostPosition = () => {
+        if (!ghostElement) return;
 
-    function removeGhostElement() {
-        if (ghostElement) {
-            ghostElement.remove();
-            ghostElement = null;
-        }
-    }
+        const rect = input.getBoundingClientRect();
+        ghostElement.style.left = `${rect.left}px`;
+        ghostElement.style.top = `${rect.top}px`;
+    };
 
-    function applySuggestion() {
-        if (currentSuggestion) {
-            input.value = currentSuggestion;
-            currentSuggestion = null;
-            originalValue = input.value;
-            removeGhostElement();
+    const removeGhostElement = () => {
+        ghostElement?.remove();
+        ghostElement = null;
+    };
 
-            // HACK - Trigger an input event to update the suggestion
-            // in order GitHub suggest to create new tag
-            const spaceEvent = new InputEvent('input', {
-                inputType: 'insertText',
-                data: '',
-                bubbles: true,
-                cancelable: true
-            });
-            input.dispatchEvent(spaceEvent);
-        }
-    }
+    const applySuggestion = () => {
+        if (!currentSuggestion) return;
 
-    function updateSuggestion() {
+        input.value = currentSuggestion;
+        currentSuggestion = null;
         originalValue = input.value;
-        const version = findLatestVersions();
-        currentSuggestion = suggestNextVersion(originalValue, version);
+        removeGhostElement();
+
+        // Déclencher un événement input pour mettre à jour la suggestion GitHub
+        const inputEvent = new InputEvent('input', {
+            inputType: 'insertText',
+            data: '',
+            bubbles: true,
+            cancelable: true
+        });
+        input.dispatchEvent(inputEvent);
+    };
+
+    const updateSuggestion = () => {
+        originalValue = input.value;
+        const latestVersion = versionUtils.getLatestVersion();
+        currentSuggestion = versionUtils.suggestNextVersion(originalValue, latestVersion);
 
         if (currentSuggestion) {
             createGhostElement();
@@ -108,62 +94,64 @@ function setupTagInput(input) {
         } else {
             removeGhostElement();
         }
-    }
+    };
 
-    // Update suggestion on input change
+    // Setup des événements
     input.addEventListener('input', updateSuggestion);
-
-    // Valid suggestion on Tab key
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Tab' && currentSuggestion) {
             e.preventDefault();
             applySuggestion();
         }
     });
-
-    // Update suggestion position on scroll and resize
-    window.addEventListener('scroll', updateGhostPosition);
-    window.addEventListener('resize', updateGhostPosition);
-
-    // Cleanup on blur
     input.addEventListener('blur', () => {
         removeGhostElement();
         currentSuggestion = null;
     });
 
-    // Display suggestion on focus if suggestion exists
-    input.addEventListener('focus', () => {
-        if (currentSuggestion) {
-            createGhostElement();
-            ghostElement.textContent = currentSuggestion;
-        }
-    });
-}
+    // Retourner les méthodes publiques si nécessaire
+    return {
+        updateSuggestion,
+        removeGhostElement
+    };
+};
 
-let configuredInput = null;
+// Gestionnaire principal de l'extension
+const initVersionSuggester = () => {
+    let configuredInput = null;
+    let currentUI = null;
 
-function initializeVersionSuggester() {
-    const observer = new MutationObserver((mutations) => {
+    const checkAndSetupInput = () => {
+        // Nettoyer si l'input n'est plus dans le DOM
         if (configuredInput && !document.contains(configuredInput)) {
+            currentUI?.removeGhostElement();
             configuredInput = null;
+            currentUI = null;
         }
 
+        // Ne rien faire si l'input est déjà configuré et toujours présent
         if (configuredInput && document.contains(configuredInput)) {
             return;
         }
 
+        // Chercher et configurer un nouvel input
         const tagInput = document.querySelector('input[placeholder*="Find or create"]');
         if (tagInput && tagInput !== configuredInput) {
             configuredInput = tagInput;
-            setupTagInput(tagInput);
+            currentUI = createSuggestionUI(tagInput);
         }
-    });
+    };
 
+    // Observer les changements du DOM
+    const observer = new MutationObserver(checkAndSetupInput);
     observer.observe(document.body, {
         childList: true,
         subtree: true
     });
-}
 
-// Initialisation of the version suggester
-initializeVersionSuggester();
+    // Vérification initiale
+    checkAndSetupInput();
+};
+
+// Démarrage de l'extension
+initVersionSuggester();
