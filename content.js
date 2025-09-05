@@ -15,15 +15,44 @@ const versionUtils = {
     },
 
     getLatestVersion() {
-        const versionElements = Array.from(document.querySelectorAll('.SelectMenu-item [data-menu-button-text]'));
-        const firstVersion = versionElements.find(el => this.parseVersion(el.textContent.trim()));
-        return firstVersion?.textContent.trim() || null;
+        const selectors = [
+            '.HighlightedText-module__HighlightedText--XiJMv'
+        ];
+
+        let versionElements = [];
+
+        for (const selector of selectors) {
+            versionElements = Array.from(document.querySelectorAll(selector));
+            if (versionElements.length > 0) {
+                break;
+            }
+        }
+
+        if (versionElements.length === 0) {
+            return null;
+        }
+
+        const firstVersion = versionElements.find(el => {
+            const text = el.textContent?.trim() || el.innerText?.trim() || '';
+            return this.parseVersion(text);
+        });
+
+        return firstVersion?.textContent?.trim() || firstVersion?.innerText?.trim() || null;
     },
 
     suggestNextVersion(currentInput, latestVersion) {
         const parsed = this.parseVersion(latestVersion);
         if (!currentInput || !parsed) return null;
-        return `${parsed.prefix}v${parsed.major}.${parsed.minor}.${parsed.patch + 1}`;
+
+        // Ne suggérer que si l'utilisateur a commencé à taper quelque chose qui ressemble au début d'une version
+        const suggestion = `${parsed.prefix}v${parsed.major}.${parsed.minor}.${parsed.patch + 1}`;
+
+        // Vérifier que l'input actuel est le début de la suggestion
+        if (suggestion.toLowerCase().startsWith(currentInput.toLowerCase())) {
+            return suggestion;
+        }
+
+        return null;
     }
 };
 
@@ -68,10 +97,12 @@ const createSuggestionUI = (input) => {
     const applySuggestion = () => {
         if (!currentSuggestion) return;
 
+        // Supprimer l'élément fantôme AVANT de changer la valeur
+        removeGhostElement();
+
         input.value = currentSuggestion;
         currentSuggestion = null;
         originalValue = input.value;
-        removeGhostElement();
 
         // Déclencher un événement input pour mettre à jour la suggestion GitHub
         const inputEvent = new InputEvent('input', {
@@ -81,18 +112,28 @@ const createSuggestionUI = (input) => {
             cancelable: true
         });
         input.dispatchEvent(inputEvent);
+
+        // Double vérification que l'élément fantôme est bien supprimé
+        setTimeout(() => {
+            removeGhostElement();
+        }, 10);
     };
 
     const updateSuggestion = () => {
+        // Toujours supprimer l'élément fantôme existant d'abord
+        removeGhostElement();
+
         originalValue = input.value;
         const latestVersion = versionUtils.getLatestVersion();
         currentSuggestion = versionUtils.suggestNextVersion(originalValue, latestVersion);
 
-        if (currentSuggestion) {
+        if (currentSuggestion && currentSuggestion !== originalValue) {
             createGhostElement();
-            ghostElement.textContent = currentSuggestion;
-        } else {
-            removeGhostElement();
+            // Afficher seulement la partie qui complète l'input existant
+            const completion = currentSuggestion.substring(originalValue.length);
+            ghostElement.textContent = originalValue + completion;
+            // Styliser pour que seule la partie complétée soit visible
+            ghostElement.innerHTML = `<span style="color: transparent;">${originalValue}</span><span style="color: #666;">${completion}</span>`;
         }
     };
 
@@ -135,7 +176,7 @@ const initVersionSuggester = () => {
         }
 
         // Chercher et configurer un nouvel input
-        const tagInput = document.querySelector('input[placeholder*="Find or create"]');
+        const tagInput = document.querySelector('input[placeholder*="Search or create a new tag"]');
         if (tagInput && tagInput !== configuredInput) {
             configuredInput = tagInput;
             currentUI = createSuggestionUI(tagInput);
