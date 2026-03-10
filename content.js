@@ -16,7 +16,7 @@ const versionUtils = {
 
     getLatestVersion() {
         const selectors = [
-            '.HighlightedText-module__HighlightedText--XiJMv'
+            '[class*="HighlightedText-module__HighlightedText"]'
         ];
 
         let versionElements = [];
