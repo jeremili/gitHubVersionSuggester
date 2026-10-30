@@ -16,7 +16,8 @@ const versionUtils = {
 
     getLatestVersion() {
         const selectors = [
-            '[class*="HighlightedText-module__HighlightedText"]'
+            '[class*="HighlightedText"]',
+            '[class*="ActionList-ItemLabel"]'
         ];
 
         let versionElements = [];
@@ -65,15 +66,22 @@ const createSuggestionUI = (input) => {
     const createGhostElement = () => {
         if (ghostElement) return;
 
+        const inputStyle = window.getComputedStyle(input);
         ghostElement = document.createElement('div');
+        // Même boîte que l'input, texte centré verticalement comme dans un input natif
         ghostElement.style.cssText = `
             position: absolute;
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
             pointer-events: none;
             color: #666;
             background: transparent;
-            font-family: ${window.getComputedStyle(input).fontFamily};
-            font-size: ${window.getComputedStyle(input).fontSize};
-            padding: ${window.getComputedStyle(input).padding};
+            font-family: ${inputStyle.fontFamily};
+            font-size: ${inputStyle.fontSize};
+            letter-spacing: ${inputStyle.letterSpacing};
+            padding: ${inputStyle.padding};
+            border: ${inputStyle.borderWidth} solid transparent;
             white-space: pre;
             z-index: 1000;
         `;
@@ -85,8 +93,10 @@ const createSuggestionUI = (input) => {
         if (!ghostElement) return;
 
         const rect = input.getBoundingClientRect();
-        ghostElement.style.left = `${rect.left}px`;
-        ghostElement.style.top = `${rect.top}px`;
+        ghostElement.style.left = `${rect.left + window.scrollX}px`;
+        ghostElement.style.top = `${rect.top + window.scrollY}px`;
+        ghostElement.style.width = `${rect.width}px`;
+        ghostElement.style.height = `${rect.height}px`;
     };
 
     const removeGhostElement = () => {
